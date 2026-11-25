@@ -239,5 +239,6 @@ tw = d.textlength(end, font=f_end)
 d.text(((W - tw) / 2, y), end, font=f_end, fill=GREY)
 print("footer baseline y =", y, "page height =", H)
 
-img.save("entry.png")
+outdir = os.environ.get("MAKEFUN_OUTPUT_DIR") or os.path.dirname(os.path.abspath(__file__))
+img.save(os.path.join(outdir, "entry.png"))
 print("saved entry.png", img.size)
