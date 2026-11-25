@@ -3,7 +3,8 @@
 Wednesday 25 November 2026. Pillow is vendored in vendor/ (the grader's
 pinned python image ships stdlib only, no Pillow); no network, no external
 assets: every glyph, rule and illustration is drawn from code with DejaVu
-fonts. Run:  python3 main.py   ->  writes entry.png (1240 x 1754, portrait).
+fonts. Run:  python3 main.py   ->  writes entry.png (724 x 1024, portrait:
+the 1240 x 1754 page shrunk to the gate's 1024 x 1024 limit).
 """
 
 import glob
@@ -292,6 +293,13 @@ print("footer baseline y =", y, "page height =", H)
 # directory, then the script dir, then a temp dir. Never crash on an
 # unwritable location -- try the next one.
 def _save_entry(image):
+    # The gate allows at most 1024 by 1024 pixels: shrink the page to fit,
+    # keeping its aspect (1240x1754 -> 724x1024). Same bytes on every run.
+    scale = min(1024 / image.width, 1024 / image.height, 1.0)
+    if scale < 1.0:
+        image = image.resize(
+            (round(image.width * scale), round(image.height * scale)),
+            Image.LANCZOS)
     cands = []
     env = os.environ.get("MAKEFUN_OUTPUT_DIR")
     if env:
