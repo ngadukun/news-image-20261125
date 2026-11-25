@@ -5,6 +5,7 @@ every glyph, rule and illustration is drawn from code with DejaVu fonts.
 Run:  python3 main.py   ->  writes entry.png (1240 x 1754, portrait).
 """
 
+import os
 import random
 import textwrap
 from PIL import Image, ImageDraw, ImageFont
@@ -18,7 +19,7 @@ BLUE = (18, 64, 118)
 GREEN = (34, 120, 60)
 MIDLINE = (200, 194, 178)
 
-FDIR = "/usr/share/fonts/truetype/dejavu/"
+FDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts") + os.sep
 
 
 def font(name, size):
