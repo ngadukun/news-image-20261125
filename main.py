@@ -1,13 +1,61 @@
 #!/usr/bin/env python3
 """Render a one-image newspaper front page summing up world news on
-Wednesday 25 November 2026. Pure Pillow, no network, no external assets:
-every glyph, rule and illustration is drawn from code with DejaVu fonts.
-Run:  python3 main.py   ->  writes entry.png (1240 x 1754, portrait).
+Wednesday 25 November 2026. Pillow is vendored in vendor/ (the grader's
+pinned python image ships stdlib only, no Pillow); no network, no external
+assets: every glyph, rule and illustration is drawn from code with DejaVu
+fonts. Run:  python3 main.py   ->  writes entry.png (1240 x 1754, portrait).
 """
 
+import glob
 import os
 import random
+import sys
+import tempfile
 import textwrap
+import zipfile
+
+# The grader runs the pinned python:3.13 image, which ships stdlib only:
+# there is no Pillow installed, so `from PIL import ...` dies with
+# ModuleNotFoundError and the run exits 1. Vendor the Pillow wheel in
+# vendor/ and unpack it to a writable temp dir before importing PIL.
+# If PIL is already installed (local dev), the wheel is never touched.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _bootstrap_pil():
+    try:
+        import PIL  # noqa: F401
+        return
+    except ImportError:
+        pass
+    tag = "cp%d%d" % (sys.version_info.major, sys.version_info.minor)
+    wheels = sorted(glob.glob(os.path.join(_HERE, "vendor", "pillow-*.whl")))
+    wheels = [w for w in wheels if tag in os.path.basename(w)] or wheels
+    if not wheels:
+        return
+    dests = [tempfile.gettempdir()]
+    outdir = os.environ.get("MAKEFUN_OUTPUT_DIR")
+    if outdir:
+        dests.append(outdir)
+    dests.append(os.getcwd())
+    for base in dests:
+        try:
+            dest = os.path.join(base, "newsimage-pil")
+            marker = os.path.join(dest, "PIL", "__init__.py")
+            if not os.path.exists(marker):
+                os.makedirs(dest, exist_ok=True)
+                with zipfile.ZipFile(wheels[0]) as zf:
+                    zf.extractall(dest)
+            if dest not in sys.path:
+                sys.path.insert(0, dest)
+            import PIL  # noqa: F401
+            return
+        except Exception:
+            continue
+
+
+_bootstrap_pil()
+
 from PIL import Image, ImageDraw, ImageFont
 
 W, H = 1240, 1754
@@ -239,6 +287,28 @@ tw = d.textlength(end, font=f_end)
 d.text(((W - tw) / 2, y), end, font=f_end, fill=GREY)
 print("footer baseline y =", y, "page height =", H)
 
-outdir = os.environ.get("MAKEFUN_OUTPUT_DIR") or os.path.dirname(os.path.abspath(__file__))
-img.save(os.path.join(outdir, "entry.png"))
-print("saved entry.png", img.size)
+# Save entry.png wherever the grader can collect it: MAKEFUN_OUTPUT_DIR
+# first (the grader sets it to its writable /output), then the working
+# directory, then the script dir, then a temp dir. Never crash on an
+# unwritable location -- try the next one.
+def _save_entry(image):
+    cands = []
+    env = os.environ.get("MAKEFUN_OUTPUT_DIR")
+    if env:
+        cands.append(env)
+    cands.append(os.getcwd())
+    cands.append(os.path.dirname(os.path.abspath(__file__)))
+    cands.append(tempfile.gettempdir())
+    last_err = None
+    for d in cands:
+        try:
+            path = os.path.join(d, "entry.png")
+            image.save(path)
+            print("saved entry.png", image.size, "to", path)
+            return path
+        except Exception as exc:  # noqa: BLE001 - try the next location
+            last_err = exc
+    raise last_err
+
+
+_save_entry(img)
